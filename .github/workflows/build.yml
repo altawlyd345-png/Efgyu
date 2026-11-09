@@ -48,8 +48,8 @@ jobs:
       - name: Check that every source file was uploaded
         run: |
           case "${{ matrix.app }}" in
-            sender) req="buildozer.spec crashguard.py devinfo.py icon.png java/org/bleremote/BleClient.java java/org/bleremote/KioskHelper.java java/org/bleremote/MediaHelper.java java/org/bleremote/MediaPicker.java layers_view.py main.py mediaplan.py presplash.png protocol.py secure.py secure_flow.py sender_app.py store.py studio.py template_catalog.json templates.py transfer.py workspace_model.py zones.py" ;;
-            receiver) req="buildozer.spec commands.py crashguard.py devinfo.py icon.png java/org/bleremote/BleServer.java java/org/bleremote/KioskHelper.java java/org/bleremote/MediaHelper.java java/org/bleremote/VideoHelper.java java/org/bleremote/ZoneVideo.java layers_view.py library.py main.py mediaserver.py playback.py presplash.png protocol.py receiver_app.py secure.py secure_flow.py studio.py template_catalog.json templates.py zones.py zones_view.py" ;;
+            sender) req="buildozer.spec crashguard.py devinfo.py icon.png java/org/bleremote/BleClient.java java/org/bleremote/FontDownloader.java java/org/bleremote/KioskHelper.java java/org/bleremote/MediaHelper.java java/org/bleremote/MediaPicker.java layers_view.py main.py mediaplan.py presplash.png protocol.py secure.py secure_flow.py sender_app.py store.py studio.py template_catalog.json templates.py transfer.py workspace_model.py zones.py" ;;
+            receiver) req="buildozer.spec commands.py crashguard.py devinfo.py icon.png java/org/bleremote/BleServer.java java/org/bleremote/KioskHelper.java java/org/bleremote/MediaHelper.java java/org/bleremote/OverlayHelper.java java/org/bleremote/VideoHelper.java java/org/bleremote/ZoneVideo.java layers_view.py library.py main.py mediaserver.py playback.py presplash.png protocol.py receiver_app.py secure.py secure_flow.py studio.py template_catalog.json templates.py zones.py zones_view.py" ;;
           esac
           missing=""
           for f in $req; do test -f "${{ steps.loc.outputs.dir }}/$f" || missing="$missing $f"; done
@@ -74,7 +74,22 @@ jobs:
         run: pip install buildozer==1.5.0 "cython==0.29.36" virtualenv
       - name: Build APK
         working-directory: ${{ steps.loc.outputs.dir }}
-        run: yes | buildozer -v android debug
+        run: |
+          yes | buildozer -v android debug 2>&1 | tee build.log
+          exit ${PIPESTATUS[1]}
+      - name: Show the real error (only when the build failed)
+        if: failure()
+        working-directory: ${{ steps.loc.outputs.dir }}
+        run: |
+          echo "=== lines that look like errors ==="
+          grep -nE "error:|Execution failed|FAILED|Traceback|cannot find symbol|BUILD FAILED" build.log | head -n 40 || true
+          echo "=== last 60 lines ==="
+          tail -n 60 build.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ matrix.app }}-log
+          path: ${{ steps.loc.outputs.dir }}/build.log
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.app }}-apk
